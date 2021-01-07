@@ -1,0 +1,33 @@
+{
+  "name": "fu",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "start1": "pm2 start server.js --name fu --watch"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.784.0",
+    "aws-serverless-express": "^3.4.0",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "fs": "0.0.1-security",
+    "jsonwebtoken": "^8.5.1",
+    "multer": "^1.4.2",
+    "multer-s3": "^2.9.0",
+    "mybatis-mapper": "^0.6.5",
+    "pg": "^8.4.2",
+    "redis": "^3.0.2",
+    "sequelize": "^6.3.5",
+    "swagger-jsdoc": "^6.0.0",
+    "swagger-ui-express": "^4.1.6",
+    "tunnel-ssh": "^4.1.4"
+  },
+  "description": ""
+}
