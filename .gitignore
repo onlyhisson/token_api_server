@@ -1,0 +1,11 @@
+.vscode/
+
+env/
+
+.env
+
+key/
+
+sql/
+
+package-lock.json
