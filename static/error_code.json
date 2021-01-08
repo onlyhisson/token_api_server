@@ -24,7 +24,7 @@
     "1022": [401, "Refresh Token Expired"],
     "1023": [401, "Invalid Refresh Token"],
     "1024": [401, "Invalid Access Token"],
-    "1025": [401, "Invalid Token Issuer"],
+    "1025": [401, "Invalid Token Issuer, Please log in again."],
     "8000": [401, "fail"],
     "9000": [401, "Invalid Api Request"]
 }
