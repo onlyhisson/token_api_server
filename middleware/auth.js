@@ -214,9 +214,6 @@ const verifyAccessToken = async (access_token) => {
     if(at_decoded.aud != 'access_token') throw {local_code:1002}
 
     // token의 issuer가 변경되면 이전 토큰은 모두 사용 불가(refresh token 재발급, 로그아웃..)
-    console.log('verifyAccessToken');
-    console.log('at_decoded.iss : ', at_decoded.iss);
-    console.log('global.issuer : ', global.issuer);
     if(at_decoded.iss != global.issuer) throw {local_code:1025}
 
     return at_decoded;
@@ -238,9 +235,6 @@ const verifyRefreshToken = async (refresh_token) => {
     // *** 디비에 해당 유저의 issuer 조회
     // *** 디비에 저장된 해당 사용자의 issuer 과 다를 경우(null 포함)는 로그아웃 처리되었거나 잘못된 토큰
     // token의 issuer가 변경되면 이전 토큰은 모두 사용 불가(refresh token 재발급, 로그아웃..)
-    console.log('verifyRefreshToken');
-    console.log('rt_decoded.iss : ', rt_decoded.iss);
-    console.log('global.issuer : ', global.issuer);
     if(rt_decoded.iss != global.issuer) throw {local_code:1025}
 
     return rt_decoded;
