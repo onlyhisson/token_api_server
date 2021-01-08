@@ -5,28 +5,29 @@
 	access token은 발급 후 2시간, refresh token은 발급 후 14일 후 만료
 	refresh token는 access token 재발급 시에만 사용(access token 처럼 사용X)
 
-	refresh token 을 발급시에는 디비에 저장(초기 로그인 성공 후 발급, refresh token 폐기 시 new refresh token을 발급 시 등)
+	refresh token 을 발급시에는 디비에 저장   
+		- 초기 로그인 성공 후 발급, refresh token 폐기 시 new refresh token을 발급 시 등
 	refresh token 으로 access token 재발급시에는 client에서 주는 refresh token과 db의 refresh token을 비교 
 	한 번 사용된 refresh token은 폐기하고 new refresh token을 생성 저장 및 발급 한다.
 
 
 ### API 요청 함수
 
-로그인 => access token, refresh token 발급
-refresh token으로 access token 발급
-만료 전 refresh token 으로 new refresh token 발급
+로그인 => access token, refresh token 발급   
+refresh token으로 access token 발급   
+만료 전 refresh token 으로 new refresh token 발급   
 
 
 ###  access token 재발급 flow
 
 Client --------------------------------------------- API 서버
 
-		  ---access token 발급 요청 -->
-	 <-- access token 발급(+refresh token) ---			
-	 --- access token 을 사용하여 API request -->
-	  <-- access token 만료 에러 response ---
-	---	refresh token 으로 access token 재발급 요청 -->
-	 <-- access token 재발급(new refresh token) ---
+--------- access token 발급 요청 --------------------------->
+<-------- access token 발급(+refresh token) -----------------			
+--------- access token 을 사용하여 API request ------------->
+<-------- access token 만료 에러 response -------------------
+--------- refresh token 으로 access token 재발급 요청 ------->
+<-------- access token 재발급(new refresh token) ------------
 
 
 
