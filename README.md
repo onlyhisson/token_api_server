@@ -22,12 +22,12 @@ refresh token으로 access token 발급
 
 Client --------------------------------------------- API 서버
 
---------- access token 발급 요청 --------------------------->
-<-------- access token 발급(+refresh token) -----------------			
---------- access token 을 사용하여 API request ------------->
-<-------- access token 만료 에러 response -------------------
---------- refresh token 으로 access token 재발급 요청 ------->
-<-------- access token 재발급(new refresh token) ------------
+--------- access token 발급 요청 --------------------------->   
+<-------- access token 발급(+refresh token) -----------------     
+--------- access token 을 사용하여 API request ------------->    
+<-------- access token 만료 에러 response -------------------    
+--------- refresh token 으로 access token 재발급 요청 ------->   
+<-------- access token 재발급(new refresh token) ------------     
 
 
 
