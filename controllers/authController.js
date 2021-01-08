@@ -38,12 +38,15 @@ const postLogin = async (req, res) => {
             return;
         }
 
-        const access_token  = await auth.signToken(req, user_id, user_type, 'access_token');
-        const refresh_token = await auth.signToken(req, user_id, user_type, 'refresh_token' );
+        const issuer = await auth.getIssuer(user_id); // *** 실제로는 DB 조회
+        global.issuer = issuer; // *** DB 있을 경우 삭제 라인
 
-        // *** 기타 사용자 정보를 조회 응답 데이터에 추가 한다.
-        // *** 사용자 DB row 에 refresh token을 update 한다.
-        global.db_refresh_token = refresh_token;
+        // *** 사용자 DB row 에 issuer을 update 한다.
+        // *** 기타 사용자 정보를 DB에서 조회 후 응답 데이터에 추가 한다.
+
+        const params = {user_id, user_type, issuer}
+        const access_token  = await auth.signToken(params, 'access_token');
+        const refresh_token = await auth.signToken(params, 'refresh_token' );
         
         res.json({
             success_yn : true,

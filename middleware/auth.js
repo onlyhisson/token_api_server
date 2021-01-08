@@ -17,19 +17,20 @@ const tokenGenerator = new TokenGenerator(
 );
 
 /* 토큰 발급 */
-const signToken = async (req, user_id, user_type, token_type) => {
+const signToken = async (params, token_type) => {
 
-    const exp = getTokenExpiredDate(token_type);
+    const {user_id, user_type, issuer} = params;
+    const exp = getTokenExpiredDate(token_type);    // 토큰 타입에 따라 만료시간 return
+
     try {
-        const issuer = await getIssuer();
         const tknInit = {   // 기본으로 들어갈 token 데이터
             audience: token_type, 
             issuer: issuer,
-            jwtid: "1", 
+            jwtid: "1",     // 해당 타입 토큰 발급 횟수
             subject: "user_info" 
         };
 
-        const tknData = {   // token에 넣을 사용자 DB 정보 데이터 지정
+        const tknData = {   // token에 포함되는 데이터, 비번이나 개인을 특정할 수 있는 정보는 넣지 않는다.(이메일 등)
             user_id,
             user_type,
             exp
@@ -43,6 +44,7 @@ const signToken = async (req, user_id, user_type, token_type) => {
 
 /* 
     토큰 인증 여부 
+    - 기본적으로 권한이 있어야 할 경우에 요청되는 middleware
     - refresh token 을 access token 으로 사용 방지
 */
 const isAuthenticated = async function(req, res, next) {
@@ -55,10 +57,10 @@ const isAuthenticated = async function(req, res, next) {
     }
 
     try {
-        const decoded = await verifyAccessToken(access_token);
+        const decoded = await verifyAccessToken(access_token);  // 만료 체크는 제외
 
-        const now = Math.floor((new Date).getTime()/1000);
-        if(Number(now) > Number(decoded.exp)) { // 만료 확인
+        const now = Math.floor((new Date).getTime());
+        if(Number(now) > Number(decoded.exp)) {                 // 만료 확인
             common.errorHandler(null, res, 1003);
             return;
         }
@@ -78,7 +80,8 @@ const isAuthenticated = async function(req, res, next) {
 
 /* 
     Access Token 재발급
-    - Refresh token 만료 전 
+    - 조건 : Refresh Token 만료 전, Access Token 만료 여부 X
+    - 설명 : getRefreshToken 와 다르게 isser 정보를 변경하지 않는다.(로그아웃 효과X)
 */
 const getNewAccessToken = async function(req, res, next) {
 
@@ -126,25 +129,29 @@ const getNewAccessToken = async function(req, res, next) {
 }
 
 /* 
-    Refresh token 재발급 
-    - Refresh token 만료 전
+    Access Token & Refresh Token 재발급 
+    - 조건  : Refresh token 만료 전, Access Token 만료 여부 X
+    - 설명  : 사용자의 로그인 정보 입력 없이 토큰 발급(로그인 요청과 차이)
+              Refresh Token 만료시간 내에 로그아웃 하지 않은 경우, 사용자가 앱 최초 사용시 요청하면 계속 로그인 없이 서비스 이용 가능
 */
-const getNewRefreshToken = async function(req, res, next) {
-    const refresh_token  = common.isNull(req.headers.authorization, null);
+const getRefreshToken = async function(req, res, next) {
+    const old_refresh_token  = common.isNull(req.headers.authorization, null);
 
-    if(!refresh_token) {
+    if(!old_refresh_token) {
         common.errorHandler(null, res, 1000)
         return;
     }
 
     try {
-        const rt_decoded =  await verifyRefreshToken(refresh_token);    // refresh token 검증 후 decode data return
+        const rt_decoded =  await verifyRefreshToken(old_refresh_token);    // refresh token 검증 후 decode data return
 
-        const newExp    = getTokenExpiredDate(rt_decoded.aud)
-        const newId     = (parseInt(rt_decoded.jti) + 1).toString();
+        const newIss    = await getIssuer(rt_decoded.user_id)
+        const newExp    = getTokenExpiredDate(rt_decoded.aud);
+        const newId     = (parseInt(rt_decoded.jti) + 1).toString();    // 해당 refresh token 로 재발급시 카운트
+
         const tknInit   = {   // 기본으로 들어갈 token 데이터
             audience: rt_decoded.aud, 
-            issuer: rt_decoded.iss,
+            issuer: newIss,
             jwtid: newId, 
             subject: rt_decoded.sub
         };
@@ -153,11 +160,21 @@ const getNewRefreshToken = async function(req, res, next) {
             user_type : rt_decoded.user_type,
             exp : newExp
         }
-        const new_refresh_token = tokenGenerator.sign(tknData, tknInit);
+        const refresh_token = tokenGenerator.sign(tknData, tknInit);
+
+        tknInit.audience = 'access_token';
+        tknInit.jwtid = "1";    // access token 은 1로 발급 횟수 초기화
+        tknData.exp = getTokenExpiredDate('access_token');
+
+        const access_token = tokenGenerator.sign(tknData, tknInit);
+
+        // *** db 에 해당 유저의 issuer 데이터 update
+        global.issuer = newIss;
 
         res.json({
             success_yn: true,
-            new_refresh_token
+            access_token,
+            refresh_token
         });
 
     } catch(err) {
@@ -192,14 +209,15 @@ const decodeTokenChk = async (req, res, next) => {
 /* Access Token 검증 */
 const verifyAccessToken = async (access_token) => {
     const at_decoded = await decodeToken(access_token);
-    console.log(at_decoded)
 
     // 토큰 타입을 잘못 넣은 경우
     if(at_decoded.aud != 'access_token') throw {local_code:1002}
 
-    // token의 issuer을 변경하면 이전 토큰은 모두 사용 불가
-    const issuer = await getIssuer();
-    if(at_decoded.iss != issuer) throw {local_code:1025}
+    // token의 issuer가 변경되면 이전 토큰은 모두 사용 불가(refresh token 재발급, 로그아웃..)
+    console.log('verifyAccessToken');
+    console.log('at_decoded.iss : ', at_decoded.iss);
+    console.log('global.issuer : ', global.issuer);
+    if(at_decoded.iss != global.issuer) throw {local_code:1025}
 
     return at_decoded;
 }
@@ -217,14 +235,13 @@ const verifyRefreshToken = async (refresh_token) => {
     // refresh token 만료 확인
     if(now > exp) throw {local_code:1022}
 
-    // token의 issuer을 변경하면 이전 토큰은 모두 사용 불가
-    const issuer = await getIssuer();
-    if(rt_decoded.iss != issuer) throw {local_code:1025}
-
-    //*** 디비에 해당 유저의 refresh token 조회
-    //*** 디비에 저장된 해당 사용자의 refresh token 과 다를 경우(null 포함)는 로그아웃 처리되었거나 잘못된 토큰
-    const db_token = global.db_refresh_token;   // DB 대신 임시 데이터 저장, 프로그램 재시작시 데이터 사라짐
-    if(db_token != refresh_token) throw {local_code:1023}
+    // *** 디비에 해당 유저의 issuer 조회
+    // *** 디비에 저장된 해당 사용자의 issuer 과 다를 경우(null 포함)는 로그아웃 처리되었거나 잘못된 토큰
+    // token의 issuer가 변경되면 이전 토큰은 모두 사용 불가(refresh token 재발급, 로그아웃..)
+    console.log('verifyRefreshToken');
+    console.log('rt_decoded.iss : ', rt_decoded.iss);
+    console.log('global.issuer : ', global.issuer);
+    if(rt_decoded.iss != global.issuer) throw {local_code:1025}
 
     return rt_decoded;
 }
@@ -233,7 +250,7 @@ const verifyRefreshToken = async (refresh_token) => {
 const decodeToken = async function(token) {
     try {
         const decoded = jwt.verify(token, keyData.privateKey);
-        decoded.exp2 = common.dateFormat(decoded.exp*1000);
+        decoded.exp2 = common.dateFormat(decoded.exp*1000); // 날짜 포맷 추가(임시)
 
         return decoded;
     } catch(err) {
@@ -249,16 +266,16 @@ const getTokenExpiredDate = function(type) {
     return exp;
 }
 
-/* 프로그램을 reboot 하지 않고도 변경된 내용 get */
-const getIssuer = function() {
+/* issuer data를 return */
+const getIssuer = function(userId) {
     return new Promise((resolve, reject) => {
-        fs.readFile(INFO_PATH, 'utf8', (err, data) => {
-            if(err) {
-                reject(err)
-            } else {
-                resolve(JSON.parse(data).token_issuer);
-            }
-        });
+        let issuer = global.issuer; // *** DB에서 해당 사용자 issuer 을 조회
+        if(issuer) {
+            issuer = `${userId}_${Number(issuer.split('_')[1])+1}`
+        } else {
+            issuer = `${userId}_1`;
+        }
+        resolve(issuer)
     })
 }
 
@@ -267,5 +284,6 @@ module.exports = {
     decodeTokenChk,
     isAuthenticated,
     getNewAccessToken,
-    getNewRefreshToken
+    getRefreshToken,
+    getIssuer
 }
